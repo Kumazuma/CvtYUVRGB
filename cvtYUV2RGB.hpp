@@ -1,5 +1,7 @@
 #pragma once
 #include<cstdint>
+#include<optional>
+#include<variant>
 namespace Kumazuma
 {
 	using YuvF = struct {
@@ -93,13 +95,13 @@ namespace Kumazuma::CvtYUV2RGB
 			m_bitDepth = val;
 			return *this;
 		}
-		std::variant<YUVImage, std::string> build() 
+		std::variant<YUVImage, std::string> build()
 		{
 			try
 			{
 				if (!m_y)
 					throw std::string("Y Plane");
-				if(!m_u)
+				if (!m_u)
 					throw std::string("U Plane");
 				if (!m_v)
 					throw std::string("V Plane");
@@ -140,9 +142,9 @@ namespace Kumazuma::CvtYUV2RGB
 		std::optional<uint8_t> m_bitDepth;
 
 	};
-	
+
 	template<typename T>
-	inline const T* GetRow(const uint8_t* plane, const size_t row, const size_t stride) 
+	inline const T* GetRow(const uint8_t* plane, const size_t row, const size_t stride)
 	{
 		return reinterpret_cast<const T*>(&plane[row * stride]);
 	}
@@ -179,10 +181,7 @@ namespace Kumazuma::CvtYUV2RGB
 				const auto& image = m_parent.m_image;
 				size_t col = m_index % image.width;
 				size_t row = m_index / image.width;
-				if (m_index % image.width == 0)
-				{
-					m_uvY = std::min(static_cast<uint32_t>(row >> image.chromaShiftY), m_parent.MAX_UVY);
-				}
+
 				const uint32_t uvX = std::min(static_cast<uint32_t>(col >> image.chromaShiftX), m_parent.MAX_UVX);
 				float Y = GetRow<_dataByteType>(image.Y.data, row, image.Y.stride)[col] / (float)((1 << image.depth) - 1);
 				float U = GetRow<_dataByteType>(image.U.data, m_uvY, image.U.stride)[uvX] / (float)((1 << image.depth) - 1) - 0.5f;
@@ -192,15 +191,23 @@ namespace Kumazuma::CvtYUV2RGB
 		public:
 			ConstIter operator++(int)
 			{
+				auto rowPrev = m_index / m_parent.m_image.width;
 				auto tmp = *this;
 				m_index++;
+				auto row = m_index / m_image.width;
+				if (rowPrev != row)
+					m_uvY = std::min(static_cast<uint32_t>(row >> m_parent.m_image.chromaShiftY), m_parent.MAX_UVY);
 				if (m_index < m_parent.size())
 					m_yuv = get();
 				return tmp;
 			}
 			ConstIter& operator++()
 			{
+				auto rowPrev = m_index / m_parent.m_image.width;
 				m_index++;
+				auto row = m_index / m_parent.m_image.width;
+				if (rowPrev != row)
+					m_uvY = std::min(static_cast<uint32_t>(row >> m_parent.m_image.chromaShiftY), m_parent.MAX_UVY);
 				if (m_index < m_parent.size())
 					m_yuv = get();
 				return *this;
